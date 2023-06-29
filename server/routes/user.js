@@ -45,4 +45,39 @@ router.post('/register', async (req, res) => {
     }
 })
 
+router.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        let user = await User.findOne({email});
+        if(!user){
+            return res.status(400).json({errors: [{msg: 'Please check your credentials and try again!'}]});
+        }
+
+        const isCorrect = await bcrypt.compare(password, user.password);
+
+        if(isCorrect){
+            const payload = {
+                user: {
+                    id: user.id
+                }
+            }
+
+            jwt.sign(
+                payload,
+                jwt_secret,
+                { expiresIn: 360000}, 
+                (err, token) => {
+                    if(err) throw err;
+                    res.json({ token });
+                });
+        }else{
+            return res.status(400).json({errors: [{msg: 'Please check your credentials and try again!'}]});
+        }
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send('Server Error');        
+    }
+})
+
 module.exports = router;
