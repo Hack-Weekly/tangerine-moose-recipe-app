@@ -5,6 +5,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const User = require('../models/User');
+const auth = require('../middleware/auth');
+const { default: mongoose } = require('mongoose');
 const jwt_secret = process.env.JWT_SECRET;
 
 router.post('/register', async (req, res) => {
@@ -77,6 +79,46 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.error(error.message);
         res.status(500).send('Server Error');        
+    }
+})
+
+router.get('/profile/:id', auth, async (req, res) => {
+    try {
+        const user = await User.findOne({_id: new mongoose.Types.ObjectId(req.params.id)}).select(['name', 'email', '_id']);
+        if(!user){
+            return res.status(400).json({msg: "Profile not found!"});
+        }
+        res.json({user});
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Server error');
+    }
+})
+
+router.post('/update_user', auth, async (req, res) => {
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const password = await bcrypt.hash(req.body.password, salt);
+        const name = req.body.name;
+
+        const updatedUser = await User.findOneAndUpdate({_id: new mongoose.Types.ObjectId(req.user.id)}, {password: password, name: name});
+        
+        if(!updatedUser) return res.status(500).json({msg: "Could not update user, please try again."});
+
+        res.status(200).json({msg: "Successfully updated user!"});
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Server error')
+    }
+})
+
+router.get('/', auth, async (req, res) => {
+    try {
+        const users = await User.find().select(['name', 'email', '_id']);
+
+        res.status(200).json({users});
+    } catch (error) {
+        res.status(500).send("Server Error")
     }
 })
 
